@@ -2,6 +2,9 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+import uuid
+from django.utils import timezone
+from datetime import timedelta
 
 
 class Profile(models.Model):
@@ -52,3 +55,27 @@ def create_user_profile(sender, instance, created, **kwargs):
 def save_user_profile(sender, instance, **kwargs):
     if hasattr(instance, 'profile'):
         instance.profile.save()
+
+
+class EmailVerification(models.Model):
+    """Модель для подтверждения email"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='Пользователь')
+    token = models.UUIDField(default=uuid.uuid4, unique=True, verbose_name='Токен подтверждения')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+    expires_at = models.DateTimeField(verbose_name='Дата истечения')
+
+    class Meta:
+        verbose_name = 'верификация email'
+        verbose_name_plural = 'верификации email'
+
+    def __str__(self):
+        return f"Верификация для {self.user.email}"
+
+    def is_expired(self):
+        return timezone.now() > self.expires_at
+
+    @classmethod
+    def create_verification(cls, user):
+        """Создает запись верификации для пользователя"""
+        expires_at = timezone.now() + timedelta(hours=24)
+        return cls.objects.create(user=user, expires_at=expires_at)

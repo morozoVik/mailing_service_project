@@ -4,27 +4,104 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import logout
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from django.core.mail import send_mail
+from django.urls import reverse
 
 from .decorators import manager_required
+from .forms import CustomUserCreationForm
+from .models import EmailVerification
 from .models import Profile
 
 
 def register(request):
-    """Регистрация нового пользователя"""
+    """Регистрация нового пользователя с подтверждением email"""
     if request.method == 'POST':
-        form = UserCreationForm(request.POST)
+        form = CustomUserCreationForm(request.POST)
         if form.is_valid():
-            user = form.save()
+            user = form.save(commit=False)
+            user.email = form.cleaned_data['email']
+            user.is_active = False
+            user.save()
 
+            # Создаем профиль если его нет
             if not hasattr(user, 'profile'):
+                from .models import Profile
                 Profile.objects.create(user=user)
 
-            username = form.cleaned_data.get('username')
-            messages.success(request, f'Аккаунт создан для {username}! Теперь вы можете войти.')
+            # Создаем запись верификации
+            verification = EmailVerification.create_verification(user)
+
+            # Отправляем email с подтверждением
+            send_verification_email(request, user, verification.token)
+
+            messages.success(
+                request,
+                'Аккаунт создан! Проверьте вашу почту для подтверждения email.'
+            )
             return redirect('users:login')
     else:
-        form = UserCreationForm()
+        form = CustomUserCreationForm()
     return render(request, 'users/register.html', {'form': form})
+
+
+def send_verification_email(request, user, token):
+    """Отправляет email с ссылкой для подтверждения"""
+    verification_url = request.build_absolute_uri(
+        reverse('users:verify_email', kwargs={'token': token})
+    )
+
+    subject = 'Подтверждение email в сервисе рассылок'
+    message = f'''
+    Здравствуйте, {user.username}!
+
+    Для подтверждения вашего email перейдите по ссылке:
+    {verification_url}
+
+    Ссылка действительна в течение 24 часов.
+
+    С уважением,
+    Команда сервиса рассылок
+    '''
+
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=None,
+        recipient_list=[user.email],
+        fail_silently=False,
+    )
+
+
+def verify_email(request, token):
+    """Подтверждение email по токену"""
+    try:
+        verification = EmailVerification.objects.get(token=token)
+
+        if verification.is_expired():
+            messages.error(request, 'Ссылка для подтверждения устарела.')
+            return redirect('users:register')
+
+        if verification.user.profile.email_verified:
+            messages.info(request, 'Email уже подтвержден.')
+            return redirect('users:login')
+
+        # Активируем пользователя и отмечаем email как подтвержденный
+        verification.user.is_active = True
+        verification.user.save()
+        verification.user.profile.email_verified = True
+        verification.user.profile.save()
+
+        # Удаляем использованную верификацию
+        verification.delete()
+
+        messages.success(request, 'Email успешно подтвержден! Теперь вы можете войти.')
+        return redirect('users:login')
+
+    except EmailVerification.DoesNotExist:
+        messages.error(request, 'Неверная ссылка подтверждения.')
+        return redirect('users:register')
 
 
 def custom_logout(request):
