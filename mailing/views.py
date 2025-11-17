@@ -6,6 +6,8 @@ from .models import Client, Message, Mailing, MailingAttempt
 from .forms import ClientForm, MessageForm, MailingForm
 from django.http import JsonResponse
 from .services import send_mailing_by_id
+from users.decorators import manager_required
+from users.models import Profile
 
 
 def index(request):
@@ -32,8 +34,11 @@ def index(request):
 
 @login_required
 def client_list(request):
-    """Список клиентов"""
-    clients = Client.objects.filter(owner=request.user)
+    """Список клиентов - пользователь видит только своих, менеджер всех"""
+    if hasattr(request.user, 'profile') and request.user.profile.is_manager:
+        clients = Client.objects.all()
+    else:
+        clients = Client.objects.filter(owner=request.user)
     return render(request, 'mailing/client_list.html', {'clients': clients})
 
 
@@ -81,8 +86,11 @@ def client_delete(request, pk):
 
 @login_required
 def mailing_list(request):
-    """Список рассылок"""
-    mailings = Mailing.objects.filter(owner=request.user)
+    """Список рассылок - пользователь видит только своих, менеджер всех"""
+    if hasattr(request.user, 'profile') and request.user.profile.is_manager:
+        mailings = Mailing.objects.all()
+    else:
+        mailings = Mailing.objects.filter(owner=request.user)
     return render(request, 'mailing/mailing_list.html', {'mailings': mailings})
 
 
@@ -113,7 +121,7 @@ def message_list(request):
 def message_create(request):
     """Создание сообщения"""
     if request.method == 'POST':
-        form = MessageForm(request.POST)
+        form = MessageForm(request.POST, user=request.user)
         if form.is_valid():
             message = form.save(commit=False)
             message.owner = request.user
@@ -121,7 +129,7 @@ def message_create(request):
             messages.success(request, 'Сообщение успешно создано!')
             return redirect('mailing:message_list')
     else:
-        form = MessageForm()
+        form = MessageForm(user=request.user)
     return render(request, 'mailing/message_form.html', {'form': form})
 
 
@@ -156,13 +164,13 @@ def mailing_update(request, pk):
     """Редактирование рассылки"""
     mailing = get_object_or_404(Mailing, pk=pk, owner=request.user)
     if request.method == 'POST':
-        form = MailingForm(request.POST, instance=mailing)
+        form = MailingForm(request.POST, instance=mailing, user=request.user)
         if form.is_valid():
             form.save()
             messages.success(request, 'Рассылка успешно обновлена!')
             return redirect('mailing:mailing_list')
     else:
-        form = MailingForm(instance=mailing)
+        form = MailingForm(instance=mailing, user=request.user)
     return render(request, 'mailing/mailing_form.html', {'form': form})
 
 
@@ -195,3 +203,37 @@ def mailing_send_now(request, pk):
         return redirect('mailing:mailing_list')
 
     return render(request, 'mailing/mailing_send_confirm.html', {'mailing': mailing})
+
+
+@manager_required
+def user_list(request):
+    """Список пользователей - только для менеджеров"""
+    users = User.objects.all().select_related('profile')
+    return render(request, 'users/user_list.html', {'users': users})
+
+
+@manager_required
+def toggle_user_block(request, user_id):
+    """Блокировка/разблокировка пользователя - только для менеджеров"""
+    user = get_object_or_404(User, id=user_id)
+    if user != request.user:
+        user.profile.blocked = not user.profile.blocked
+        user.profile.save()
+        action = "заблокирован" if user.profile.blocked else "разблокирован"
+        messages.success(request, f'Пользователь {user.username} {action}')
+    return redirect('users:user_list')
+
+
+@manager_required
+def toggle_mailing_status(request, mailing_id):
+    """Включение/отключение рассылки - только для менеджеров"""
+    mailing = get_object_or_404(Mailing, id=mailing_id)
+    if mailing.status == Mailing.STATUS_STARTED:
+        mailing.status = Mailing.STATUS_COMPLETED
+        action = "отключена"
+    else:
+        mailing.status = Mailing.STATUS_STARTED
+        action = "включена"
+    mailing.save()
+    messages.success(request, f'Рассылка "{mailing.message.subject}" {action}')
+    return redirect('mailing:mailing_list')
