@@ -24,14 +24,6 @@ class MessageForm(forms.ModelForm):
 
 
 class MailingForm(forms.ModelForm):
-    def __init__(self, *args, **kwargs):
-        user = kwargs.pop('user', None)
-        super().__init__(*args, **kwargs)
-        if user:
-            self.fields['message'].queryset = Message.objects.filter(owner=user)
-            self.fields['clients'].queryset = Client.objects.filter(owner=user)
-
-
     class Meta:
         model = Mailing
         fields = ['start_time', 'end_time', 'message', 'clients']
@@ -47,3 +39,11 @@ class MailingForm(forms.ModelForm):
             'message': forms.Select(attrs={'class': 'form-control'}),
             'clients': forms.SelectMultiple(attrs={'class': 'form-control'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        if user:
+            self.fields['message'].queryset = Message.objects.filter(owner=user)
+            self.fields['clients'].queryset = Client.objects.filter(owner=user)
+

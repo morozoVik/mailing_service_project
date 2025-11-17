@@ -1,5 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 from django.contrib import messages
 from django.db.models import Count, Q
 from .models import Client, Message, Mailing, MailingAttempt
@@ -11,23 +12,70 @@ from users.models import Profile
 
 
 def index(request):
-    """Главная страница"""
+    """Главная страница с расширенной статистикой"""
     if request.user.is_authenticated:
+        # Основная статистика
         total_mailings = Mailing.objects.filter(owner=request.user).count()
         active_mailings = Mailing.objects.filter(
             owner=request.user,
             status=Mailing.STATUS_STARTED
         ).count()
         unique_clients = Client.objects.filter(owner=request.user).count()
+
+        # Статистика по попыткам
+        user_mailings = Mailing.objects.filter(owner=request.user)
+        total_attempts = MailingAttempt.objects.filter(mailing__in=user_mailings).count()
+        successful_attempts = MailingAttempt.objects.filter(
+            mailing__in=user_mailings,
+            status=MailingAttempt.STATUS_SUCCESS
+        ).count()
+        failed_attempts = MailingAttempt.objects.filter(
+            mailing__in=user_mailings,
+            status=MailingAttempt.STATUS_FAILED
+        ).count()
+
+        # Проценты успеха
+        success_rate = (successful_attempts / total_attempts * 100) if total_attempts > 0 else 0
+        failure_rate = (failed_attempts / total_attempts * 100) if total_attempts > 0 else 0
+
+        # Статусы рассылок
+        created_mailings = Mailing.objects.filter(
+            owner=request.user,
+            status=Mailing.STATUS_CREATED
+        ).count()
+        completed_mailings = Mailing.objects.filter(
+            owner=request.user,
+            status=Mailing.STATUS_COMPLETED
+        ).count()
+
+        # Последние рассылки
+        recent_mailings = Mailing.objects.filter(owner=request.user).order_by('-created_at')[:5]
+
     else:
         total_mailings = 0
         active_mailings = 0
         unique_clients = 0
+        total_attempts = 0
+        successful_attempts = 0
+        failed_attempts = 0
+        success_rate = 0
+        failure_rate = 0
+        created_mailings = 0
+        completed_mailings = 0
+        recent_mailings = []
 
     context = {
         'total_mailings': total_mailings,
         'active_mailings': active_mailings,
         'unique_clients': unique_clients,
+        'total_attempts': total_attempts,
+        'successful_attempts': successful_attempts,
+        'failed_attempts': failed_attempts,
+        'success_rate': success_rate,
+        'failure_rate': failure_rate,
+        'created_mailings': created_mailings,
+        'completed_mailings': completed_mailings,
+        'recent_mailings': recent_mailings,
     }
     return render(request, 'mailing/index.html', context)
 
@@ -98,17 +146,18 @@ def mailing_list(request):
 def mailing_create(request):
     """Создание рассылки"""
     if request.method == 'POST':
-        form = MailingForm(request.POST)
+        form = MailingForm(request.POST, user=request.user)
         if form.is_valid():
             mailing = form.save(commit=False)
             mailing.owner = request.user
             mailing.save()
-            form.save_m2m()  # Сохраняем связи many-to-many
+            form.save_m2m()
             messages.success(request, 'Рассылка успешно создана!')
             return redirect('mailing:mailing_list')
     else:
-        form = MailingForm()
+        form = MailingForm(user=request.user)
     return render(request, 'mailing/mailing_form.html', {'form': form})
+
 
 @login_required
 def message_list(request):
@@ -121,7 +170,7 @@ def message_list(request):
 def message_create(request):
     """Создание сообщения"""
     if request.method == 'POST':
-        form = MessageForm(request.POST, user=request.user)
+        form = MessageForm(request.POST)
         if form.is_valid():
             message = form.save(commit=False)
             message.owner = request.user
@@ -129,7 +178,7 @@ def message_create(request):
             messages.success(request, 'Сообщение успешно создано!')
             return redirect('mailing:message_list')
     else:
-        form = MessageForm(user=request.user)
+        form = MessageForm()
     return render(request, 'mailing/message_form.html', {'form': form})
 
 
@@ -221,6 +270,8 @@ def toggle_user_block(request, user_id):
         user.profile.save()
         action = "заблокирован" if user.profile.blocked else "разблокирован"
         messages.success(request, f'Пользователь {user.username} {action}')
+    else:
+        messages.error(request, 'Нельзя заблокировать себя')
     return redirect('users:user_list')
 
 

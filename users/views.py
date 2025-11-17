@@ -4,15 +4,12 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import logout
-from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
-from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
 from django.urls import reverse
 
 from .decorators import manager_required
+from .models import Profile, EmailVerification
 from .forms import CustomUserCreationForm
-from .models import EmailVerification
-from .models import Profile
 
 
 def register(request):
@@ -27,7 +24,6 @@ def register(request):
 
             # Создаем профиль если его нет
             if not hasattr(user, 'profile'):
-                from .models import Profile
                 Profile.objects.create(user=user)
 
             # Создаем запись верификации
@@ -116,6 +112,7 @@ def user_list(request):
     users = User.objects.all().select_related('profile')
     return render(request, 'users/user_list.html', {'users': users})
 
+
 @manager_required
 def toggle_user_block(request, user_id):
     """Блокировка/разблокировка пользователя"""
@@ -128,6 +125,7 @@ def toggle_user_block(request, user_id):
     else:
         messages.error(request, 'Нельзя заблокировать себя')
     return redirect('users:user_list')
+
 
 @manager_required
 def change_user_role(request, user_id):
