@@ -105,18 +105,6 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# ==================== НАСТРОЙКИ ПОЧТЫ ====================
-# Для тестирования (письма в консоль) - используйте в .env:
-# EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
-#
-# Для реальной отправки (например, Яндекс) - используйте в .env:
-# EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-# EMAIL_HOST=smtp.yandex.ru
-# EMAIL_PORT=587
-# EMAIL_USE_TLS=True
-# EMAIL_HOST_USER=your-email@yandex.ru
-# EMAIL_HOST_PASSWORD=your-app-password
-# DEFAULT_FROM_EMAIL=your-email@yandex.ru
 
 EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
 EMAIL_HOST = os.getenv('EMAIL_HOST', '')
@@ -154,3 +142,21 @@ LOGGING = {
         },
     },
 }
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+    }
+}
+
+CACHE_MIDDLEWARE_ALIAS = 'default'
+CACHE_MIDDLEWARE_SECONDS = 900  # 15 минут
+CACHE_MIDDLEWARE_KEY_PREFIX = 'mailing_service'
+CACHE_EXCLUDED_URLS = [
+    '/',
+    '/clients/',
+    '/mailings/',
+    '/messages/',
+    '/users/',
+]

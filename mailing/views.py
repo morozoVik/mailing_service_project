@@ -3,9 +3,11 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.db.models import Count, Q
+from django.http import JsonResponse
+from django.views.decorators.cache import cache_page
+
 from .models import Client, Message, Mailing, MailingAttempt
 from .forms import ClientForm, MessageForm, MailingForm
-from django.http import JsonResponse
 from .services import send_mailing_by_id
 from users.decorators import manager_required
 from users.models import Profile
