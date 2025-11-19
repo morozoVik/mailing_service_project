@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.contrib.auth.models import AbstractUser
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 import uuid
@@ -7,8 +8,29 @@ from django.utils import timezone
 from datetime import timedelta
 
 
+class User(AbstractUser):
+    """Кастомная модель пользователя с дополнительными полями"""
+
+    phone = models.CharField(max_length=20, blank=True, verbose_name='Телефон')
+    avatar = models.ImageField(upload_to='users/avatars/', blank=True, null=True, verbose_name='Аватар')
+    country = models.CharField(max_length=100, blank=True, verbose_name='Страна')
+
+    email = models.EmailField(unique=True, verbose_name='Email')
+
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['username']
+
+    class Meta:
+        verbose_name = 'пользователь'
+        verbose_name_plural = 'пользователи'
+
+    def __str__(self):
+        return self.email
+
+
 class Profile(models.Model):
     """Модель профиля пользователя с ролями"""
+    user = models.OneToOneField('User', on_delete=models.CASCADE, verbose_name='Пользователь')
 
     ROLE_USER = 'user'
     ROLE_MANAGER = 'manager'
@@ -20,7 +42,6 @@ class Profile(models.Model):
         (ROLE_ADMIN, 'Администратор'),
     ]
 
-    user = models.OneToOneField(User, on_delete=models.CASCADE, verbose_name='Пользователь')
     role = models.CharField(
         max_length=20,
         choices=ROLE_CHOICES,

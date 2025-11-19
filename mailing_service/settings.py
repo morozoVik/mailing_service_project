@@ -19,6 +19,8 @@ DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
+AUTH_USER_MODEL = 'users.User'
+
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -28,8 +30,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
-    'mailing',
     'users',
+    'mailing',
 ]
 
 MIDDLEWARE = [
