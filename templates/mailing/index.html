@@ -4,7 +4,7 @@
 
 {% block content %}
 <div class="row">
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card text-white bg-primary mb-3">
             <div class="card-body">
                 <h5 class="card-title">Всего рассылок</h5>
@@ -12,7 +12,7 @@
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card text-white bg-success mb-3">
             <div class="card-body">
                 <h5 class="card-title">Активные рассылки</h5>
@@ -20,7 +20,7 @@
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card text-white bg-info mb-3">
             <div class="card-body">
                 <h5 class="card-title">Уникальные клиенты</h5>
@@ -28,7 +28,126 @@
             </div>
         </div>
     </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Всего отправок</h5>
+                <p class="card-text display-4">{{ total_attempts }}</p>
+            </div>
+        </div>
+    </div>
 </div>
+
+{% if user.is_authenticated %}
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title">Статистика по попыткам рассылок</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <div class="text-success">
+                            <h3>{{ successful_attempts }}</h3>
+                            <p>Успешных</p>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-danger">
+                            <h3>{{ failed_attempts }}</h3>
+                            <p>Неуспешных</p>
+                        </div>
+                    </div>
+                </div>
+                {% if total_attempts > 0 %}
+                <div class="mt-3">
+                    <div class="progress" style="height: 25px;">
+                        <div class="progress-bar bg-success" style="width: {{ success_rate }}%">
+                            {{ success_rate|floatformat:1 }}%
+                        </div>
+                        <div class="progress-bar bg-danger" style="width: {{ failure_rate }}%">
+                            {{ failure_rate|floatformat:1 }}%
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title">Статусы рассылок</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Созданы
+                        <span class="badge bg-primary rounded-pill">{{ created_mailings }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Запущены
+                        <span class="badge bg-success rounded-pill">{{ active_mailings }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Завершены
+                        <span class="badge bg-secondary rounded-pill">{{ completed_mailings }}</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Последние рассылки</h5>
+                <a href="{% url 'mailing:mailing_list' %}" class="btn btn-sm btn-outline-primary">Все рассылки</a>
+            </div>
+            <div class="card-body">
+                {% if recent_mailings %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Тема</th>
+                                <th>Статус</th>
+                                <th>Клиентов</th>
+                                <th>Успешных</th>
+                                <th>Неуспешных</th>
+                                <th>Дата создания</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for mailing in recent_mailings %}
+                            <tr>
+                                <td>{{ mailing.message.subject|truncatewords:5 }}</td>
+                                <td>
+                                    <span class="badge bg-{% if mailing.status == 'started' %}success{% elif mailing.status == 'completed' %}secondary{% else %}primary{% endif %}">
+                                        {{ mailing.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>{{ mailing.clients.count }}</td>
+                                <td class="text-success">{{ mailing.get_successful_attempts_count }}</td>
+                                <td class="text-danger">{{ mailing.get_failed_attempts_count }}</td>
+                                <td>{{ mailing.created_at|date:"d.m.Y H:i" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">У вас пока нет рассылок</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <div class="row mt-4">
     <div class="col-12">
@@ -41,6 +160,12 @@
                 {% if not user.is_authenticated %}
                     <a href="{% url 'users:login' %}" class="btn btn-primary">Войти в систему</a>
                     <a href="{% url 'users:register' %}" class="btn btn-outline-primary">Зарегистрироваться</a>
+                {% else %}
+                    <div class="btn-group">
+                        <a href="{% url 'mailing:client_list' %}" class="btn btn-outline-primary">Клиенты</a>
+                        <a href="{% url 'mailing:message_list' %}" class="btn btn-outline-primary">Сообщения</a>
+                        <a href="{% url 'mailing:mailing_list' %}" class="btn btn-outline-primary">Рассылки</a>
+                    </div>
                 {% endif %}
             </div>
         </div>

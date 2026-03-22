@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block title %}Управление пользователями{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Управление пользователями</h1>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Имя пользователя</th>
+                <th>Email</th>
+                <th>Роль</th>
+                <th>Статус</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>{{ user.id }}</td>
+                <td>{{ user.username }}</td>
+                <td>{{ user.email }}</td>
+                <td>
+                    <span class="badge
+                        {% if user.profile.role == 'admin' %}bg-danger
+                        {% elif user.profile.role == 'manager' %}bg-warning
+                        {% else %}bg-secondary{% endif %}">
+                        {{ user.profile.get_role_display }}
+                    </span>
+                </td>
+                <td>
+                    <span class="badge {% if user.profile.blocked %}bg-danger{% else %}bg-success{% endif %}">
+                        {% if user.profile.blocked %}Заблокирован{% else %}Активен{% endif %}
+                    </span>
+                </td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        {% if user != request.user %}
+                        <form method="post" action="{% url 'users:toggle_user_block' user.id %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-{% if user.profile.blocked %}success{% else %}danger{% endif %}">
+                                {% if user.profile.blocked %}🔄 Разблокировать{% else %}🚫 Заблокировать{% endif %}
+                            </button>
+                        </form>
+
+                        <div class="dropdown d-inline">
+                            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                Роль
+                            </button>
+                            <ul class="dropdown-menu">
+                                <form method="post" action="{% url 'users:change_user_role' user.id %}">
+                                    {% csrf_token %}
+                                    <li><button type="submit" name="role" value="user" class="dropdown-item">Пользователь</button></li>
+                                    <li><button type="submit" name="role" value="manager" class="dropdown-item">Менеджер</button></li>
+                                    <li><button type="submit" name="role" value="admin" class="dropdown-item">Администратор</button></li>
+                                </form>
+                            </ul>
+                        </div>
+                        {% else %}
+                        <span class="text-muted">Это вы</span>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="text-center">Нет пользователей</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
