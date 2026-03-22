@@ -1,4 +1,5 @@
 import logging
+import os
 
 from django.core.mail import send_mail
 from django.utils import timezone
@@ -19,12 +20,14 @@ def send_mailing(mailing):
         mailing.status = Mailing.STATUS_STARTED
         mailing.save()
 
+    from_email = os.getenv("DEFAULT_FROM_EMAIL", "ulb9@mail.ru")
+
     for client in mailing.clients.all():
         try:
             send_mail(
                 subject=mailing.message.subject,
                 message=mailing.message.body,
-                from_email="ulb9@mail.ru",
+                from_email=from_email,
                 recipient_list=[client.email],
                 fail_silently=False,
             )
