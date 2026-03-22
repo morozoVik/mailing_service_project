@@ -1,3 +1,4 @@
+import os
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -13,15 +14,18 @@ class Command(BaseCommand):
     help = "Создает тестовые данные для рассылок"
 
     def handle(self, *args, **options):
+        password = os.getenv("TEST_USER_PASSWORD", "testpass123")
+
         user, created = User.objects.get_or_create(
-            username="testuser", defaults={"email": "test@example.com"}
+            username="testuser",
+            defaults={"email": "test@example.com", "is_active": True},
         )
         if created:
-            user.set_password("testpass123")
+            user.set_password(password)
             user.save()
             self.stdout.write(
                 self.style.SUCCESS(
-                    "Создан тестовый пользователь: testuser / testpass123"
+                    f"Создан тестовый пользователь: testuser / {password}"
                 )
             )
 
